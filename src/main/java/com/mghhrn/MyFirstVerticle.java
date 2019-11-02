@@ -1,6 +1,7 @@
 package com.mghhrn;
 
 import io.vertx.core.AbstractVerticle;
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
@@ -46,14 +47,23 @@ public class MyFirstVerticle extends AbstractVerticle {
                 .handler(this::addProduct)
                 .failureHandler(ctx -> {
                     ctx.failure().printStackTrace();
-                    ctx.response().end("FAILURE!");
-                })
-        ;
+                    ctx.response().setStatusCode(400).end("FAILURE!");
+                });
+
+        router.get("/product")
+                .handler(ResponseTimeHandler.create())
+                .handler(this::listProducts)
+                .failureHandler(ctx -> {
+                    ctx.failure().printStackTrace();
+                    ctx.response().setStatusCode(400).end("FAILURE!");
+                });
+
 
         vertx.createHttpServer()
                 .requestHandler(router)
                 .listen(8080);
     }
+
 
     @Override
     public void stop() throws Exception {
@@ -72,7 +82,6 @@ public class MyFirstVerticle extends AbstractVerticle {
         product.setName(body.getString("name"));
         product.setPrice(body.getLong("price"));
 
-
         client.preparedQuery("INSERT INTO product (name , price) VALUES ($1 , $2) ",
                 Tuple.of(product.getName(), product.getPrice()),
                 ar -> {
@@ -86,5 +95,21 @@ public class MyFirstVerticle extends AbstractVerticle {
                         rc.response().setStatusCode(400).end("Failure: " + ar.cause().getMessage());
                     }
         });
+    }
+
+    private void listProducts(RoutingContext rc) {
+        client.query("SELECT * FROM product",
+                ar -> {
+                    if (ar.succeeded()) {
+                        RowSet result = ar.result();
+                        JsonArray array = new JsonArray();
+                        System.out.println("inserted value to DB.      row count = " + result.rowCount());
+                        rc.response().end("Got " + result.size() + " rows ");
+                    } else {
+                        System.out.println("Failure: " + ar.cause().getMessage());
+                        ar.cause().printStackTrace();
+                        rc.response().setStatusCode(400).end("Failure: " + ar.cause().getMessage());
+                    }
+                });
     }
 }
