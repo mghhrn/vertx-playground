@@ -9,6 +9,7 @@ import io.vertx.ext.web.handler.*;
 import io.vertx.pgclient.PgConnectOptions;
 import io.vertx.pgclient.PgPool;
 import io.vertx.sqlclient.PoolOptions;
+import io.vertx.sqlclient.Row;
 import io.vertx.sqlclient.RowSet;
 import io.vertx.sqlclient.Tuple;
 
@@ -35,12 +36,9 @@ public class MyFirstVerticle extends AbstractVerticle {
 
         Router router = Router.router(vertx);
 
-        router.get("/")
-                .handler(routingContext -> routingContext.response().end("OK guys!"))
-                .failureHandler(ErrorHandler.create(true));
-
         router.post("/product")
                 .handler(ResponseTimeHandler.create())
+                .handler(ResponseContentTypeHandler.create())
                 .handler(LoggerHandler.create(LoggerFormat.DEFAULT))
                 .consumes("application/json")
                 .handler(BodyHandler.create())
@@ -50,9 +48,33 @@ public class MyFirstVerticle extends AbstractVerticle {
                     ctx.response().setStatusCode(400).end("FAILURE!");
                 });
 
+        router.put("/product/:id")
+                .handler(ResponseTimeHandler.create())
+                .handler(ResponseContentTypeHandler.create())
+                .handler(LoggerHandler.create(LoggerFormat.DEFAULT))
+                .consumes("application/json")
+                .handler(BodyHandler.create())
+                .handler(this::updateProduct)
+                .failureHandler(ctx -> {
+                    ctx.failure().printStackTrace();
+                    ctx.response().setStatusCode(400).end("FAILURE!");
+                });
+
         router.get("/product")
                 .handler(ResponseTimeHandler.create())
+                .handler(ResponseContentTypeHandler.create())
+                .produces("application/json")
                 .handler(this::listProducts)
+                .failureHandler(ctx -> {
+                    ctx.failure().printStackTrace();
+                    ctx.response().setStatusCode(400).end("FAILURE!");
+                });
+
+        router.get("/product/:id")
+                .handler(ResponseTimeHandler.create())
+                .handler(ResponseContentTypeHandler.create())
+                .produces("application/json")
+                .handler(this::getOneProduct)
                 .failureHandler(ctx -> {
                     ctx.failure().printStackTrace();
                     ctx.response().setStatusCode(400).end("FAILURE!");
@@ -97,18 +119,75 @@ public class MyFirstVerticle extends AbstractVerticle {
         });
     }
 
+    private void updateProduct(RoutingContext rc) {
+        JsonObject jsonBody = rc.getBodyAsJson();
+
+        Long givenId = Long.valueOf(rc.pathParam("id"));
+        JsonObject productInDb = null;
+
+        client.preparedQuery("select * from product where id = $1",
+                Tuple.of(givenId),
+                ar -> {
+                    if (ar.succeeded()) {
+                        if (ar.result().size() == 0)     //check the existence of the data logically
+                            rc.response().setStatusCode(400).end("product not found!");
+
+                        client.preparedQuery("update product set name = $1 , price = $2 where id = $3",
+                                Tuple.of(jsonBody.getString("name"), jsonBody.getLong("price"), givenId),
+                                ar2 -> {
+                                    if (ar2.succeeded()) {
+                                        rc.response().end("update completed!");
+                                    }
+                                    else {
+                                        rc.response().setStatusCode(400).end("error executing update query!");
+                                    }
+                                });
+                    }
+                    else {
+                        rc.response().setStatusCode(400).end("error in executing select query!");
+                    }
+                });
+    }
+
     private void listProducts(RoutingContext rc) {
         client.query("SELECT * FROM product",
                 ar -> {
                     if (ar.succeeded()) {
-                        RowSet result = ar.result();
+                        RowSet<Row> result = ar.result();
                         JsonArray array = new JsonArray();
-                        System.out.println("inserted value to DB.      row count = " + result.rowCount());
-                        rc.response().end("Got " + result.size() + " rows ");
+                        for(Row row : result) {
+                            array.add(new JsonObject()
+                                    .put("id", row.getLong("id"))
+                                    .put("name", row.getString("name"))
+                                    .put("price", row.getLong("price"))
+                            );
+                        }
+                        rc.response().end(array.encode());
                     } else {
                         System.out.println("Failure: " + ar.cause().getMessage());
                         ar.cause().printStackTrace();
                         rc.response().setStatusCode(400).end("Failure: " + ar.cause().getMessage());
+                    }
+                });
+    }
+
+    private void getOneProduct(RoutingContext rc) {
+
+        Long productId = Long.valueOf(rc.pathParam("id"));
+        client.preparedQuery("select name, price from product where id = $1",
+                Tuple.of(productId),
+                ar -> {
+                    if(ar.succeeded()) {
+                        Row row = ar.result().iterator().next();
+                        rc.response().end(new JsonObject()
+                            .put("id", productId)
+                            .put("name", row.getString("name"))
+                            .put("price", row.getLong("price"))
+                            .encode());
+                    }
+                    else {
+                        ar.cause().printStackTrace();
+                        rc.response().setStatusCode(400).end("fail inside!");
                     }
                 });
     }
