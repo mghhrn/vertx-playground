@@ -60,6 +60,16 @@ public class MyFirstVerticle extends AbstractVerticle {
                     ctx.response().setStatusCode(400).end("FAILURE!");
                 });
 
+        router.delete("/product/:id")
+                .handler(ResponseTimeHandler.create())
+                .handler(ResponseContentTypeHandler.create())
+                .handler(LoggerHandler.create(LoggerFormat.DEFAULT))
+                .handler(this::deleteProduct)
+                .failureHandler(ctx -> {
+                    ctx.failure().printStackTrace();
+                    ctx.response().setStatusCode(400).end("FAILURE!");
+                });
+
         router.get("/product")
                 .handler(ResponseTimeHandler.create())
                 .handler(ResponseContentTypeHandler.create())
@@ -95,15 +105,10 @@ public class MyFirstVerticle extends AbstractVerticle {
     }
 
     private void addProduct(RoutingContext rc) {
-
         JsonObject body = rc.getBodyAsJson();
-
-        System.out.println(body.encodePrettily());
-
         Product product = new Product();
         product.setName(body.getString("name"));
         product.setPrice(body.getLong("price"));
-
         client.preparedQuery("INSERT INTO product (name , price) VALUES ($1 , $2) ",
                 Tuple.of(product.getName(), product.getPrice()),
                 ar -> {
@@ -121,10 +126,8 @@ public class MyFirstVerticle extends AbstractVerticle {
 
     private void updateProduct(RoutingContext rc) {
         JsonObject jsonBody = rc.getBodyAsJson();
-
         Long givenId = Long.valueOf(rc.pathParam("id"));
         JsonObject productInDb = null;
-
         client.preparedQuery("select * from product where id = $1",
                 Tuple.of(givenId),
                 ar -> {
@@ -162,7 +165,7 @@ public class MyFirstVerticle extends AbstractVerticle {
                                     .put("price", row.getLong("price"))
                             );
                         }
-                        rc.response().end(array.encode());
+                        rc.response().end(array.encodePrettily());
                     } else {
                         System.out.println("Failure: " + ar.cause().getMessage());
                         ar.cause().printStackTrace();
@@ -172,7 +175,6 @@ public class MyFirstVerticle extends AbstractVerticle {
     }
 
     private void getOneProduct(RoutingContext rc) {
-
         Long productId = Long.valueOf(rc.pathParam("id"));
         client.preparedQuery("select name, price from product where id = $1",
                 Tuple.of(productId),
@@ -188,6 +190,33 @@ public class MyFirstVerticle extends AbstractVerticle {
                     else {
                         ar.cause().printStackTrace();
                         rc.response().setStatusCode(400).end("fail inside!");
+                    }
+                });
+    }
+
+    private void deleteProduct(RoutingContext rc) {
+        Long productId = Long.valueOf(rc.pathParam("id"));
+        client.preparedQuery("select * from product where id = $1",
+                Tuple.of(productId),
+                ar -> {
+                    if (ar.succeeded()) {
+                        if (ar.result().size() == 0)     //check the existence of the data logically
+                            rc.response().setStatusCode(400).end("product with id " + productId + " was not found!");
+
+                        client.preparedQuery("delete from product where id = $1",
+                                Tuple.of(productId),
+                                ar2 -> {
+                                    if (ar2.succeeded()) {
+                                        rc.response().end("delete completed!");
+                                    }
+                                    else {
+                                        ar2.cause().printStackTrace();
+                                        rc.response().setStatusCode(400).end("error executing delete query!");
+                                    }
+                                });
+                    }
+                    else {
+                        rc.response().setStatusCode(400).end("error in executing select query!");
                     }
                 });
     }
