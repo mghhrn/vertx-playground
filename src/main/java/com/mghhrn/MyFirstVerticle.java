@@ -24,6 +24,7 @@ public class MyFirstVerticle extends AbstractVerticle {
 
         System.out.println("Context config= " + this.config().encodePrettily());
         this.processArgs().forEach(arg -> System.out.println("process args = " + arg));
+        System.out.println("verticle id = " + this.deploymentID());
 
         PgConnectOptions connectOptions = new PgConnectOptions()
                 .setPort(5432)

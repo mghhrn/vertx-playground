@@ -9,7 +9,7 @@
 
 * mvn clean package
 * java -jar target/file.jar 
-*java -jar target/file.jar --cluster -Djava.net.preferIPv4Stack=true
+* java -jar target/file.jar --cluster -Djava.net.preferIPv4Stack=true
 
 
 
