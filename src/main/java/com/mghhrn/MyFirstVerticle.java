@@ -1,6 +1,7 @@
 package com.mghhrn;
 
 import io.vertx.core.AbstractVerticle;
+import io.vertx.core.Future;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
@@ -17,8 +18,12 @@ public class MyFirstVerticle extends AbstractVerticle {
 
     private PgPool client;
 
+
     @Override
     public void start() {
+
+        System.out.println("Context config= " + this.config().encodePrettily());
+        this.processArgs().forEach(arg -> System.out.println("process args = " + arg));
 
         PgConnectOptions connectOptions = new PgConnectOptions()
                 .setPort(5432)
@@ -93,7 +98,12 @@ public class MyFirstVerticle extends AbstractVerticle {
 
         vertx.createHttpServer()
                 .requestHandler(router)
-                .listen(8080);
+                .listen(8080, ar -> {
+                    if (ar.succeeded())
+                        System.out.println("Http Server is ready!");
+                    else
+                        System.out.println("Http Server starting failed!");
+                });
     }
 
 
