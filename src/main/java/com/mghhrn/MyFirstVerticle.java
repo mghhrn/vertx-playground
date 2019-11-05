@@ -22,16 +22,17 @@ public class MyFirstVerticle extends AbstractVerticle {
     @Override
     public void start() {
 
-        System.out.println("Context config= " + this.config().encodePrettily());
-        this.processArgs().forEach(arg -> System.out.println("process args = " + arg));
+        //we can pass some config to the Context of verticle using "--conf" config
+        System.out.println("Context config= " + config().encodePrettily());
+        processArgs().forEach(arg -> System.out.println("process args = " + arg));
         System.out.println("verticle id = " + this.deploymentID());
 
         PgConnectOptions connectOptions = new PgConnectOptions()
-                .setPort(5432)
-                .setHost("localhost")
-                .setDatabase("mghtest")
-                .setUser("postgres")
-                .setPassword("")
+                .setPort(config().getInteger("db.port"))
+                .setHost(config().getString("db.host"))
+                .setDatabase(config().getString("db.name"))
+                .setUser(config().getString("db.user"))
+                .setPassword(config().getString("db.password"))
                 ;
 
         PoolOptions poolOptions = new PoolOptions()

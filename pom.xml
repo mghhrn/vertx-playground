@@ -13,7 +13,7 @@
         <vertx.version>3.8.3</vertx.version>
         <vertx.verticle>com.mghhrn.MyFirstVerticle</vertx.verticle>
         <!-- Maven plugins -->
-        <fabric8-vertx-maven-plugin.version>1.0.5</fabric8-vertx-maven-plugin.version>
+        <fabric8-vertx-maven-plugin.version>1.0.22</fabric8-vertx-maven-plugin.version>
     </properties>
 
     <dependencyManagement>
@@ -73,7 +73,8 @@
     <build>
         <plugins>
             <plugin>
-                <groupId>io.fabric8</groupId>
+                <!-- https://reactiverse.io/vertx-maven-plugin -->
+                <groupId>io.reactiverse</groupId>
                 <artifactId>vertx-maven-plugin</artifactId>
                 <version>${fabric8-vertx-maven-plugin.version}</version>
                 <executions>
